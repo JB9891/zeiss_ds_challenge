@@ -7,7 +7,7 @@ I assumed that the task is to build a lead generator for e.g. sale mangers. Beca
 
 Furthermore, I imagined the problem to be a prioritization task, because a sales manager might have only limited resources and only want to contact potential customers with a high probability to become a customer.
 
-Thus, the idea was to come up with a list of potential customers order by expected probability of becoming a customer.
+Thus, the idea was to come up with a list of potential customers ordered by expected probability of becoming a customer.
 Unfortunately, this did not work out because the classifiers are not really beating simply predicting the true class.
 
 ## Important files of the repo
