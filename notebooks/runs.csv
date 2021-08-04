@@ -1,0 +1,7 @@
+Run ID,Name,Source Type,Source Name,User,Status,best_params,cv_scorer,n_cv_folds,mean_test_score_best,mean_train_score_best,std_test_best,std_train_best
+63f2830164934b6db3c064754dd3df98,random_forest,LOCAL,train.py,jan,FINISHED,"{'max_depth': 32, 'max_features': 4}",precision,4,0.7050669918316976,1,0.05335635295172789,0
+cd3a46e969134e918a083c8907b8ff9c,logistic_regression_L1,LOCAL,train.py,jan,FINISHED,{'logistic__C': 10.0},precision,4,0.5503261358524517,0.7317903525046383,0.08421452947695147,0.05685987792693096
+e307461492e740c9965def9c3b5f5cb7,dummy,LOCAL,train.py,jan,FINISHED,{'strategy': 'most_frequent'},precision,4,0.600090579710145,0.6000097809076682,0.017721012270392966,0.005970961752137023
+1b8a992f80a74688bd977e46cf71d78d,random_forest,LOCAL,train.py,jan,FINISHED,"{'max_depth': 32, 'max_features': 4}",precision,4,0.7050669918316976,1,0.05335635295172789,0
+cf1af815fe3d478bb060b1d717ea8454,logistic_regression_L1,LOCAL,train.py,jan,FINISHED,{'logistic__C': 0.001},precision,4,0.600090579710145,0.6000097809076682,0.017721012270392966,0.005970961752137023
+ca6fa64c06f0461c8aee69fb11bfb208,dummy,LOCAL,train.py,jan,FINISHED,{'strategy': 'most_frequent'},precision,4,0.600090579710145,0.6000097809076682,0.017721012270392966,0.005970961752137023

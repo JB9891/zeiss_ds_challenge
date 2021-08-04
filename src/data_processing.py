@@ -103,4 +103,37 @@ def split_train_secret(data):
 
     return train, secret
 
+def get_features():
+    """Get List of manually selected features
+
+    :return: Colnames of manually selected features
+    :rtype: List
+    """
+    # Manually selected numeric features to deal with high multicollinearity
+    numeric_features = [
+        "q_OpeningHours",
+        "q_2017 Total Households",
+        "q_2017 Purchasing Power: Per Capita",
+        "q_2017 Medical Products: Per Capita",
+        "q_5th Quint by Total HH",
+    ]
+
+    # All available binary features
+    binary_features = [
+        "b_specialisation_i",
+        "b_specialisation_h",
+        "b_specialisation_g",
+        "b_specialisation_f",
+        "b_specialisation_e",
+        "b_specialisation_d",
+        "b_specialisation_c",
+        "b_specialisation_b",
+        "b_specialisation_a",
+        "b_specialisation_j",
+    ]
+
+    # Combine numeric and binary features
+    features = numeric_features + binary_features
+
+    return features, numeric_features, binary_features
 
