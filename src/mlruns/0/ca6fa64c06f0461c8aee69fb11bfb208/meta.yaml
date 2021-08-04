@@ -1,0 +1,15 @@
+artifact_uri: file:///home/jan/Projects/DS/zeiss_ds_challenge/src/mlruns/0/ca6fa64c06f0461c8aee69fb11bfb208/artifacts
+end_time: 1628095850944
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+name: ''
+run_id: ca6fa64c06f0461c8aee69fb11bfb208
+run_uuid: ca6fa64c06f0461c8aee69fb11bfb208
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1628095850919
+status: 3
+tags: []
+user_id: jan

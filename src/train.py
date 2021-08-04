@@ -1,6 +1,15 @@
-# The data set used in this example is from http://archive.ics.uci.edu/ml/datasets/Wine+Quality
-# P. Cortez, A. Cerdeira, F. Almeida, T. Matos and J. Reis.
-# Modeling wine preferences by data mining from physicochemical properties. In Decision Support Systems, Elsevier, 47(4):547-553, 2009.
+"""
+Module to train some classifiers for zeiss coding challenge.
+
+The module trains a logistic regression regularized by lasso norm
+and a random forest classifier. Some hyperparameters are tuned with a simple grid search
+and selected within k-fold cross validation. Additionally a dummy classifier simply prediction the most frequent class
+(b_gekauft_gesamt = 1).
+
+Precision is used as scoring metric, because it is assumed, that the lead generator is a prioritization problem, becasue
+it is only possible to contact several of all potential customers via e.g. cold calls.
+Thus a small amount of false positives would be highly desirable to save resources.
+"""
 
 import os
 import warnings
@@ -8,53 +17,31 @@ import sys
 
 import pandas as pd
 import numpy as np
-from sklearn.metrics import (
-    accuracy_score,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import cross_val_score
-from sklearn import svm
+
+
+from sklearn.model_selection import StratifiedKFold
 from sklearn.compose import ColumnTransformer
-from sklearn.datasets import fetch_openml
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.dummy import DummyClassifier
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import ShuffleSplit
 
-import math
-import statistics
-
-
-from urllib.parse import urlparse
 import mlflow
-import mlflow.sklearn
-
-from data_processing import *
 
 import logging
 
+from data_processing import *
 
-def metrics(actual, pred):
-    acc = accuracy_score(actual, pred)
-    f1 = f1_score(actual, pred)
-    prec = precision_score(actual, pred)
-    rec = recall_score(actual, pred)
-    auc = roc_auc_score(actual, pred)
-    return acc, f1, prec, rec, auc
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger()
 
 
 if __name__ == "__main__":
-    warnings.filterwarnings("ignore")
 
     # Set a seed value
     seed_value = 23
@@ -66,13 +53,16 @@ if __name__ == "__main__":
     # Path to directory of storing secret test data
     path_secret = "../data/"
 
-    # Manually selected features
+    # Manually selected numeric features to deal with high multicollinearity
     numeric_features = [
         "q_OpeningHours",
         "q_2017 Total Households",
         "q_2017 Purchasing Power: Per Capita",
         "q_2017 Medical Products: Per Capita",
+        "q_5th Quint by Total HH",
     ]
+
+    # All available binary features
     binary_features = [
         "b_specialisation_i",
         "b_specialisation_h",
@@ -85,76 +75,170 @@ if __name__ == "__main__":
         "b_specialisation_a",
         "b_specialisation_j",
     ]
+
+    # Combine numeric and binary features
     features = numeric_features + binary_features
 
     # Define label column
     label = "b_gekauft_gesamt"
 
-    # Apply preprocessing steps inlc. reading, cleaning, imputation of data
-    data = preprocess_data(path_raw, features, label, path_secret)
+    # Apply preprocessing steps incl. reading, cleaning, imputation of data
+    train_test = preprocess_data(path_raw, features, label, path_secret)
 
-    numeric_transformer = Pipeline(steps=[
-        ('scaler', StandardScaler())])
+    # Use whole training data for model selection with k-fold cross validation
+    # Nested cross validation is not applied due to already small sample size
+    X = train_test[features]
+    y = train_test[label]
 
-    binary_transformer = Pipeline(steps=[('imputer', SimpleImputer(strategy='constant'))])
+    # Define folds of cross validation
+    cv = StratifiedKFold(n_splits=4)
+
+    # Mixed transformer to standard scale numeric features and keep binary features as they are
+    numeric_transformer = Pipeline(steps=[("scaler", StandardScaler())])
+
+    binary_transformer = Pipeline(steps=[("imputer", SimpleImputer())])
 
     mixed_transformer = ColumnTransformer(
         transformers=[
-            ('num', numeric_transformer, numeric_features),
-            ('bin', binary_transformer, binary_features)])
+            ("num", numeric_transformer, numeric_features),
+            ("bin", binary_transformer, binary_features),
+        ]
+    )
 
-    # Build classifier
-    #classifier_pipeline = Pipeline(steps=[('mixed_transformer', mixed_transformer),
-    #                                      ('classifier', DummyClassifier(strategy="stratified"))])
+    # Helper function for cv of dummy classifier
+    def cv_dummy(params):  # Dummy classifier is used as benchmark
 
-    classifier_pipeline = Pipeline(steps=[('mixed_transformer', mixed_transformer),
-                                          ('classifier', svm.SVC(C=1))])
+        # Cross validation of dummy classifier
+        dummy_search = GridSearchCV(
+            estimator=DummyClassifier(),
+            param_grid=params,
+            cv=cv,
+            scoring="precision",  # Precision is used as scoring metric, because it is assumed
+            # that the lead generator is a prioritization problem.
+            return_train_score=True,
+        )
 
-    # Score
+        # Fit dummy classifier
+        dummy_search.fit(X, y)
 
-    scores = cross_val_score(classifier_pipeline, data[features], data[label], cv=5, scoring='precision')
-    scores_mean = statistics.median(scores)
-    scores_std = statistics.stdev(scores)
+        return dummy_search
 
-    # The predicted column is "quality" which is a scalar from [3, 9]
-    train_x = train.drop(["quality"], axis=1)
-    test_x = test.drop(["quality"], axis=1)
-    train_y = train[["quality"]]
-    test_y = test[["quality"]]
+    # Helper function for cv and grid_search of logistic regression
+    def cv_log(
+        params,
+    ):  # Logistic regression with lasso norm to reduce high dimensionality of feature space
 
-    alpha = float(sys.argv[1]) if len(sys.argv) > 1 else 0.5
-    l1_ratio = float(sys.argv[2]) if len(sys.argv) > 2 else 0.5
+        log_pipeline = Pipeline(
+            steps=[
+                ("mixed_transformer", mixed_transformer),
+                (
+                    "logistic",
+                    LogisticRegression(
+                        solver="saga", max_iter=10000, penalty="l1",
+                    ),
+                ),
+            ]
+        )
 
-    with mlflow.start_run():
-        lr = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, random_state=42)
-        lr.fit(train_x, train_y)
+        # Cross validation of log regression
+        log_search = GridSearchCV(
+            estimator=log_pipeline,
+            param_grid=log_params,
+            cv=cv,
+            scoring="precision",  # Precision is used as scoring factor, because it is assumed
+            # that the lead generator is a prioritization problem.
+            return_train_score=True,
+        )
 
-        predicted_qualities = lr.predict(test_x)
+        log_search.fit(X, y)
 
-        (rmse, mae, r2) = eval_metrics(test_y, predicted_qualities)
+        return log_search
 
-        print("Elasticnet model (alpha=%f, l1_ratio=%f):" % (alpha, l1_ratio))
-        print("  RMSE: %s" % rmse)
-        print("  MAE: %s" % mae)
-        print("  R2: %s" % r2)
+    # Helper function for cv and grid_search of random forest
+    def cv_rf(
+        params,
+    ):  # Random forest is used as model benchmark with higher complexity
 
-        mlflow.log_param("alpha", alpha)
-        mlflow.log_param("l1_ratio", l1_ratio)
-        mlflow.log_metric("rmse", rmse)
-        mlflow.log_metric("r2", r2)
-        mlflow.log_metric("mae", mae)
+        # Cross validation of random forest
+        rf_search = GridSearchCV(
+            estimator=RandomForestClassifier(n_estimators=20),
+            param_grid=params,
+            cv=cv,
+            scoring="precision",  # Precision is used as scoring factor, because it is assumed
+            # that the lead generator is a prioritization problem.
+            return_train_score=True,
+        )
 
-        tracking_url_type_store = urlparse(mlflow.get_tracking_uri()).scheme
+        # Cross validate random forest classifier
+        rf_search.fit(X, y)
 
-        # Model registry does not work with file store
-        if tracking_url_type_store != "file":
+        return rf_search
 
-            # Register the model
-            # There are other ways to use the Model Registry, which depends on the use case,
-            # please refer to the doc for more information:
-            # https://mlflow.org/docs/latest/model-registry.html#api-workflow
-            mlflow.sklearn.log_model(
-                lr, "model", registered_model_name="ElasticnetWineModel"
-            )
+    # Define experiments and grid search parameters
+
+    # Parameters for Dummy Classifier
+    dummy_params = {"strategy": ["most_frequent"]}
+
+    # Parameter for LogisticRegression_L1
+    log_params = {
+        # Allow strict regularization
+        "logistic__C": [1e-3, 1e-1, 1e0, 1e1, 1e2],
+        # Exclude strict regularization
+        # "logistic__C": [1e0, 1e1, 1e2],
+    }
+
+    # Parameters for random forest
+    rf_params = {
+        "max_depth": [1, 2, 4, 8, 16, 32, None],
+        "max_features": [2, 4, 8],
+    }
+
+    # All experiments to be tested
+    experiments = ["dummy", "logistic_regression_L1", "random_forest"]
+
+    for experiment in experiments:
+
+        # Set a seed value
+        seed_value = 23
+        np.random.seed(seed_value)
+
+        # Start mflow run
+        mlflow.start_run(run_name=experiment)
+
+        # Fit models
+        if experiment == "dummy":
+            clf = cv_dummy(dummy_params)
+        elif experiment == "logistic_regression_L1":
+            clf = cv_log(log_params)
+        elif experiment == "random_forest":
+            clf = cv_rf(rf_params)
         else:
-            mlflow.sklearn.log_model(lr, "model")
+            logger.info(f"No experiment defined for {experiment}")
+            mlflow.end_run()
+            continue
+
+        params = {
+            "best_params": clf.best_params_,
+            "n_cv_folds": clf.n_splits_,
+            "cv_scorer": clf.scoring,
+        }
+
+        idx = clf.best_index_
+        metrics = {
+            "mean_test_score_best": clf.cv_results_["mean_test_score"][idx],
+            "std_test_best": clf.cv_results_["std_test_score"][idx],
+            "mean_train_score_best": clf.cv_results_["mean_train_score"][idx],
+            "std_train_best": clf.cv_results_["std_train_score"][idx],
+        }
+
+        # Log metrics and parameters of experiments
+        mlflow.log_params(params)
+        mlflow.log_metrics(metrics)
+
+        # Log the sklearn model and register as version 1
+        model_name = "sk-learn-zeiss_cc-" + experiment
+        mlflow.sklearn.log_model(clf, model_name)
+
+        # End mlflow run
+        mlflow.end_run()
+        logger.info(f"Experiments for " + experiment + " finished")

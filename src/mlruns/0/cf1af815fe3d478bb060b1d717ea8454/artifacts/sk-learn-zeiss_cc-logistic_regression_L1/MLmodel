@@ -1,0 +1,13 @@
+artifact_path: sk-learn-zeiss_cc-logistic_regression_L1
+flavors:
+  python_function:
+    env: conda.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    python_version: 3.8.10
+  sklearn:
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 0.24.2
+run_id: cf1af815fe3d478bb060b1d717ea8454
+utc_time_created: '2021-08-04 16:50:51.345065'
