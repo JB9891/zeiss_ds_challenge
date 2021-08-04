@@ -1,3 +1,7 @@
+"""
+This module contains functions for data preprocessing
+"""
+
 import pandas as pd
 
 
