@@ -16,7 +16,8 @@ Unfortunately, this did not work out because the classifiers are not really beat
 - **src/train.py** --> contains the pipeline to create the experiments incl a mlflow logging
 
 ## Rerun experiments from command line
-- Create conda environment from environment yaml
-- Activate conda env
-- **cd** to root directory and run **python src/train.py**
-- Run MLflow’s Tracking UI: **mlflow ui** and view it at and view it at http://localhost:5000.
+- Clone repo
+- Create conda environment from environment.yaml
+- Activate environment
+- **cd** to **src** directory and run **python src/train.py**
+- Run MLflow’s Tracking UI from **src**: **mlflow ui** and view it at http://localhost:5000.
