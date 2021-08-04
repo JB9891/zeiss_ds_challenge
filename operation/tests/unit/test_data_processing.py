@@ -1,14 +1,9 @@
-import sys
-
-
 from unittest import TestCase
-import pandas as pd
 from src.data_processing import *
 from test_utils import *
 
 
 class DataProcessingTestCase(TestCase):
-
     def test_impute(self):
 
         data = get_mock_data()
@@ -16,4 +11,4 @@ class DataProcessingTestCase(TestCase):
         # Impute 0 of q_OpeningHours
         data_imputed = impute(data)
 
-        pass
+        self.assertEqual(data_imputed["q_OpeningHours"].mean(), 10)
