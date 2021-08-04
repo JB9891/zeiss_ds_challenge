@@ -1,3 +1,7 @@
+"""
+This module contains some utility function
+"""
+
 import pandas_profiling
 
 def profiling_reports(data, title):

@@ -43,41 +43,14 @@ logger = logging.getLogger()
 
 if __name__ == "__main__":
 
-    # Set a seed value
-    seed_value = 23
-    np.random.seed(seed_value)
-
     # Path to csv of raw data
     path_raw = "../data/CustomerData_LeadGenerator.csv"
 
     # Path to directory of storing secret test data
     path_secret = "../data/"
 
-    # Manually selected numeric features to deal with high multicollinearity
-    numeric_features = [
-        "q_OpeningHours",
-        "q_2017 Total Households",
-        "q_2017 Purchasing Power: Per Capita",
-        "q_2017 Medical Products: Per Capita",
-        "q_5th Quint by Total HH",
-    ]
-
-    # All available binary features
-    binary_features = [
-        "b_specialisation_i",
-        "b_specialisation_h",
-        "b_specialisation_g",
-        "b_specialisation_f",
-        "b_specialisation_e",
-        "b_specialisation_d",
-        "b_specialisation_c",
-        "b_specialisation_b",
-        "b_specialisation_a",
-        "b_specialisation_j",
-    ]
-
-    # Combine numeric and binary features
-    features = numeric_features + binary_features
+    # Get selected features
+    features, numeric_features, binary_features = get_features()
 
     # Define label column
     label = "b_gekauft_gesamt"
@@ -113,8 +86,7 @@ if __name__ == "__main__":
             estimator=DummyClassifier(),
             param_grid=params,
             cv=cv,
-            scoring="precision",  # Precision is used as scoring metric, because it is assumed
-            # that the lead generator is a prioritization problem.
+            scoring="precision",
             return_train_score=True,
         )
 
@@ -124,9 +96,9 @@ if __name__ == "__main__":
         return dummy_search
 
     # Helper function for cv and grid_search of logistic regression
-    def cv_log(
-        params,
-    ):  # Logistic regression with lasso norm to reduce high dimensionality of feature space
+    # Logistic regression with lasso norm to reduce high dimensionality of feature space
+    # Especially in the context of the small sample size
+    def cv_log(params,):
 
         log_pipeline = Pipeline(
             steps=[
@@ -145,8 +117,7 @@ if __name__ == "__main__":
             estimator=log_pipeline,
             param_grid=log_params,
             cv=cv,
-            scoring="precision",  # Precision is used as scoring factor, because it is assumed
-            # that the lead generator is a prioritization problem.
+            scoring="precision",
             return_train_score=True,
         )
 
@@ -155,17 +126,15 @@ if __name__ == "__main__":
         return log_search
 
     # Helper function for cv and grid_search of random forest
-    def cv_rf(
-        params,
-    ):  # Random forest is used as model benchmark with higher complexity
+    # Random forest is used as model benchmark with higher complexity
+    def cv_rf(params,):
 
         # Cross validation of random forest
         rf_search = GridSearchCV(
             estimator=RandomForestClassifier(n_estimators=20),
             param_grid=params,
             cv=cv,
-            scoring="precision",  # Precision is used as scoring factor, because it is assumed
-            # that the lead generator is a prioritization problem.
+            scoring="precision",
             return_train_score=True,
         )
 
@@ -196,6 +165,9 @@ if __name__ == "__main__":
     # All experiments to be tested
     experiments = ["dummy", "logistic_regression_L1", "random_forest"]
 
+    # Run experiments
+    # Precision is used as scoring factor, because it is assumed
+    # that the lead generator is a prioritization problem.
     for experiment in experiments:
 
         # Set a seed value
